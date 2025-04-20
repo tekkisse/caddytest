@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2.7.6-builder
+    container_name: caddy
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.1
+    container_name: keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+
+  alice-app:
+    image: nginx:alpine
+    container_name: alice-app
+    volumes:
+      - ./alice-app:/usr/share/nginx/html:ro
+
+  bob-app:
+    image: nginx:alpine
+    container_name: bob-app
+    volumes:
+      - ./bob-app:/usr/share/nginx/html:ro
+
+volumes:
+  caddy_data:
+  caddy_config:
+  keycloak_data:

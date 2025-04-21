@@ -1,45 +1,61 @@
 version: "3.8"
 
 services:
-  caddy:
-    image: caddy:2.7.6-builder
-    container_name: caddy
-    build:
-      context: .
-      dockerfile: Dockerfile.caddy
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--api.dashboard=true"
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080" # dashboard
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    command: ["/oauth2-proxy", "--config", "/oauth2-proxy.cfg"]
+    volumes:
+      - ./oauth2-proxy/oauth2-proxy.cfg:/oauth2-proxy.cfg:ro
+    depends_on:
+      - keycloak
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.1
-    container_name: keycloak
-    command: start-dev
+    command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-    ports:
-      - "8080:8080"
     volumes:
-      - keycloak_data:/opt/keycloak/data
+      - ./keycloak:/opt/keycloak/data/import
+    ports:
+      - "8081:8080"
 
   alice-app:
     image: nginx:alpine
-    container_name: alice-app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alice.rule=PathPrefix(`/alice`)"
+      - "traefik.http.routers.alice.entrypoints=web"
+      - "traefik.http.routers.alice.middlewares=auth-alice"
+      - "traefik.http.middlewares.auth-alice.forwardauth.address=http://oauth2-proxy:4180"
+      - "traefik.http.middlewares.auth-alice.forwardauth.trustforwardheader=true"
+      - "traefik.http.middlewares.auth-alice.forwardauth.authResponseHeaders=X-Auth-Request-User"
     volumes:
       - ./alice-app:/usr/share/nginx/html:ro
 
   bob-app:
     image: nginx:alpine
-    container_name: bob-app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bob.rule=PathPrefix(`/bob`)"
+      - "traefik.http.routers.bob.entrypoints=web"
+      - "traefik.http.routers.bob.middlewares=auth-bob"
+      - "traefik.http.middlewares.auth-bob.forwardauth.address=http://oauth2-proxy:4180"
+      - "traefik.http.middlewares.auth-bob.forwardauth.trustforwardheader=true"
+      - "traefik.http.middlewares.auth-bob.forwardauth.authResponseHeaders=X-Auth-Request-User"
     volumes:
       - ./bob-app:/usr/share/nginx/html:ro
-
-volumes:
-  caddy_data:
-  caddy_config:
-  keycloak_data:

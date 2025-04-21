@@ -1,0 +1,31 @@
+{
+    "realm": "master",
+    "enabled": true,
+    "clients": [
+      {
+        "clientId": "traefik-client",
+        "enabled": true,
+        "protocol": "openid-connect",
+        "publicClient": false,
+        "secret": "traefik-client-secret",
+        "redirectUris": ["http://localhost/oauth2/callback"]
+      }
+    ],
+    "users": [
+      {
+        "username": "alice",
+        "enabled": true,
+        "credentials": [
+          { "type": "password", "value": "alicepass" }
+        ]
+      },
+      {
+        "username": "bob",
+        "enabled": true,
+        "credentials": [
+          { "type": "password", "value": "bobpass" }
+        ]
+      }
+    ]
+  }
+  
